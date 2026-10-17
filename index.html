@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>連続スクショ v1.0</title>
+  
+  <style>
+    body { font-family: sans-serif; margin: 0; padding: 10px; background: #f0f0f0; touch-action: manipulation; color: #333; }
+    h1 { font-size: 1.2rem; margin: 0 0 15px; text-align: center; color: #1976d2; }
+    
+    .container { display: flex; flex-direction: column; align-items: center; width: 100%; max-width: 600px; margin: 0 auto; gap: 15px; }
+
+    /* 動画読み込みエリア */
+    .file-input-wrapper { width: 100%; background: white; padding: 15px; border-radius: 8px; box-sizing: border-box; box-shadow: 0 2px 4px rgba(0,0,0,0.1); text-align: center; }
+    .file-input-wrapper label { display: block; font-weight: bold; margin-bottom: 10px; color: #555; }
+    .file-input-wrapper input[type="file"] { width: 100%; font-size: 0.9rem; }
+
+    /* 動画プレイヤーエリア */
+    .video-wrapper { width: 100%; background: black; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.2); display: flex; justify-content: center; align-items: center; min-height: 200px; }
+    video { width: 100%; max-height: 400px; display: none; }
+    #videoPlaceholder { color: #888; font-size: 0.9rem; padding: 20px; text-align: center; }
+
+    /* コントロールエリア */
+    .controls-panel { width: 100%; background: white; padding: 15px; border-radius: 8px; box-sizing: border-box; box-shadow: 0 2px 4px rgba(0,0,0,0.1); display: flex; flex-direction: column; gap: 15px; }
+    
+    .radio-group { display: flex; justify-content: center; gap: 20px; font-weight: bold; align-items: center; border-bottom: 1px solid #eee; padding-bottom: 15px; }
+    .radio-group label { display: flex; align-items: center; gap: 5px; cursor: pointer; color: #424242; }
+
+    .btn-record { width: 100%; padding: 15px; font-size: 1.1rem; font-weight: bold; border: none; border-radius: 8px; background: #1976d2; color: white; cursor: pointer; transition: 0.2s; display: flex; justify-content: center; align-items: center; gap: 5px; }
+    .btn-record.active { background: #d32f2f; animation: pulse 1.5s infinite; }
+    @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(0.98); box-shadow: inset 0 0 10px rgba(0,0,0,0.5); } 100% { transform: scale(1); } }
+
+    /* ギャラリー（スクショ結果）エリア */
+    .gallery-header { width: 100%; display: flex; justify-content: space-between; align-items: center; margin-top: 10px; }
+    .gallery-header h2 { font-size: 1rem; margin: 0; color: #555; }
+    .btn-clear { padding: 8px 15px; font-size: 0.85rem; font-weight: bold; border: none; border-radius: 6px; background: #757575; color: white; cursor: pointer; }
+
+    .gallery-container { width: 100%; display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 8px; }
+    .screenshot-item { width: 100%; border-radius: 4px; overflow: hidden; border: 2px solid #ccc; box-sizing: border-box; background: #fff; display: flex; align-items: center; justify-content: center; position: relative; }
+    .screenshot-item img { width: 100%; display: block; }
+    .screenshot-item::after { content: "長押しで保存"; position: absolute; bottom: 0; left: 0; width: 100%; background: rgba(0,0,0,0.6); color: white; font-size: 0.6rem; text-align: center; padding: 2px 0; pointer-events: none; opacity: 0; transition: opacity 0.2s; }
+    .screenshot-item:active::after { opacity: 1; }
+
+    /* メッセージボックス */
+    #msgBox { display: none; width: 100%; background: #fff3e0; color: #e65100; padding: 10px; border-radius: 8px; font-size: 0.9rem; border: 1px solid #ffcc80; box-sizing: border-box; text-align: center; font-weight: bold; }
+
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <h1>📸 連続スクショ v1.0</h1>
+
+    <!-- メッセージ表示用 -->
+    <div id="msgBox"></div>
+
+    <!-- 動画読み込み -->
+    <div class="file-input-wrapper">
+      <label for="videoInput">📱 スマホ内の動画を選択</label>
+      <input type="file" id="videoInput" accept="video/*">
+    </div>
+
+    <!-- 動画プレイヤー -->
+    <div class="video-wrapper">
+      <div id="videoPlaceholder">動画が選択されていません</div>
+      <video id="videoPlayer" controls playsinline></video>
+    </div>
+
+    <!-- コントロール -->
+    <div class="controls-panel">
+      <div class="radio-group">
+        <span>撮影間隔：</span>
+        <label><input type="radio" name="interval" value="short" checked> 短 (0.1秒)</label>
+        <label><input type="radio" name="interval" value="long"> 長 (0.5秒)</label>
+      </div>
+      <button id="btnToggleRecord" class="btn-record" onclick="toggleCapture()">
+        <span>●</span> 連続スクショ開始
+      </button>
+    </div>
+
+    <!-- ギャラリー -->
+    <div class="gallery-header">
+      <h2>取得した画像 (<span id="imgCount">0</span>枚)</h2>
+      <button class="btn-clear" onclick="clearGallery()">🗑 クリア</button>
+    </div>
+    <div id="galleryContainer" class="gallery-container">
+      <!-- ここにスクショ画像が追加されます -->
+    </div>
+  </div>
+
+  <script>
+    const videoInput = document.getElementById('videoInput');
+    const videoPlayer = document.getElementById('videoPlayer');
+    const videoPlaceholder = document.getElementById('videoPlaceholder');
+    const btnToggleRecord = document.getElementById('btnToggleRecord');
+    const galleryContainer = document.getElementById('galleryContainer');
+    const imgCountSpan = document.getElementById('imgCount');
+    const msgBox = document.getElementById('msgBox');
+
+    let captureInterval = null;
+    let isCapturing = false;
+    let imageCounter = 0;
+
+    // メッセージ表示機能（alertの代わり）
+    function showMessage(text, isError = true) {
+      msgBox.textContent = text;
+      msgBox.style.display = 'block';
+      msgBox.style.color = isError ? '#e65100' : '#1b5e20';
+      msgBox.style.backgroundColor = isError ? '#fff3e0' : '#e8f5e9';
+      msgBox.style.borderColor = isError ? '#ffcc80' : '#a5d6a7';
+      setTimeout(() => { msgBox.style.display = 'none'; }, 3000);
+    }
+
+    // 動画ファイル選択時の処理
+    videoInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        // 既存のURLを解放（メモリリーク防止）
+        if (videoPlayer.src) URL.revokeObjectURL(videoPlayer.src);
+        
+        const url = URL.createObjectURL(file);
+        videoPlayer.src = url;
+        videoPlayer.style.display = 'block';
+        videoPlaceholder.style.display = 'none';
+        
+        // 動画ロード後に一度リセット
+        stopCapture();
+        clearGallery();
+      }
+    });
+
+    // 動画が最後まで再生されたら自動的にスクショを止める
+    videoPlayer.addEventListener('ended', () => {
+      if (isCapturing) stopCapture();
+    });
+
+    // キャプチャの開始・停止切り替え
+    function toggleCapture() {
+      if (!videoPlayer.src) {
+        showMessage('先に動画ファイルを選択してください！');
+        return;
+      }
+      
+      if (isCapturing) {
+        stopCapture();
+      } else {
+        startCapture();
+      }
+    }
+
+    // キャプチャ開始処理
+    function startCapture() {
+      const intervalType = document.querySelector('input[name="interval"]:checked').value;
+      const intervalMs = intervalType === 'short' ? 100 : 500; // 短: 100ms, 長: 500ms
+
+      isCapturing = true;
+      btnToggleRecord.classList.add('active');
+      btnToggleRecord.innerHTML = '<span>■</span> 停止';
+
+      // もし動画が一時停止中なら、自動的に再生を開始する
+      if (videoPlayer.paused) {
+        videoPlayer.play();
+      }
+
+      // 指定間隔でスクショを実行
+      captureInterval = setInterval(() => {
+        takeScreenshot();
+      }, intervalMs);
+    }
+
+    // キャプチャ停止処理
+    function stopCapture() {
+      isCapturing = false;
+      btnToggleRecord.classList.remove('active');
+      btnToggleRecord.innerHTML = '<span>●</span> 連続スクショ開始';
+      
+      if (captureInterval) {
+        clearInterval(captureInterval);
+        captureInterval = null;
+      }
+      // 再生中の動画を一時停止する
+      if (!videoPlayer.paused) {
+        videoPlayer.pause();
+      }
+    }
+
+    // 動画から画像を切り出す処理
+    function takeScreenshot() {
+      // まだ動画のサイズが取得できていない場合はスキップ
+      if (!videoPlayer.videoWidth || !videoPlayer.videoHeight) return;
+
+      // 隠しキャンバスを作成して動画の現在のフレームを描画
+      const canvas = document.createElement('canvas');
+      canvas.width = videoPlayer.videoWidth;
+      canvas.height = videoPlayer.videoHeight;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(videoPlayer, 0, 0, canvas.width, canvas.height);
+
+      // キャンバスから画像データを生成 (JPEG形式で少し圧縮してメモリ節約)
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+
+      // img要素を作成してギャラリーに追加
+      const imgWrapper = document.createElement('div');
+      imgWrapper.className = 'screenshot-item';
+      
+      const img = document.createElement('img');
+      img.src = dataUrl;
+      
+      imgWrapper.appendChild(img);
+      
+      // prependを使用し、新しい画像を一番上（先頭）に追加する
+      galleryContainer.prepend(imgWrapper);
+      
+      imageCounter++;
+      imgCountSpan.textContent = imageCounter;
+    }
+
+    // ギャラリーのクリア
+    function clearGallery() {
+      // 誤操作防止のため、キャプチャ中はクリアさせない
+      if (isCapturing) {
+        showMessage('スクショ実行中はクリアできません。');
+        return;
+      }
+      galleryContainer.innerHTML = '';
+      imageCounter = 0;
+      imgCountSpan.textContent = imageCounter;
+    }
+
+  </script>
+</body>
+</html>

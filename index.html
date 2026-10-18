@@ -2,432 +2,271 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>連続スクショ</title>
-  <!-- ZIPファイル生成用のライブラリ -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-
-  <script async src="https://www.googletagmanager.com/gtag/js?id=G-8PJYQKC5F5"></script>
-    <script>
-      window.dataLayer = window.dataLayer || [];
-      function gtag(){dataLayer.push(arguments);}
-      gtag('js', new Date());
-
-      // 測定ID
-      gtag('config', 'G-8PJYQKC5F5');
-  </script>
-  
   <style>
-    body { font-family: sans-serif; margin: 0; padding: 20px; background: #f0f0f0; color: #333; }
+    body { font-family: sans-serif; margin: 0; padding: 20px; background: #f0f0f0; color: #333; display: flex; gap: 20px; height: 100vh; box-sizing: border-box; }
     
-    /* PC向け：左右2カラムレイアウト */
-    .main-layout { display: flex; flex-direction: row; gap: 20px; max-width: 1500px; margin: 0 auto; align-items: flex-start; }
+    /* 動画画面を若干大きく調整 */
+    .left-pane { flex: 1.3; display: flex; flex-direction: column; gap: 15px; max-width: 60%; } 
+    .right-pane { flex: 1; display: flex; flex-direction: column; gap: 15px; background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); overflow-y: hidden; }
     
-    /* 左側：動画と操作パネル */
-    .left-panel { flex: 1; max-width: 600px; display: flex; flex-direction: column; gap: 15px; position: sticky; top: 20px; }
-    .left-panel h1 { font-size: 1.5rem; margin: 0 0 10px; text-align: center; color: #1976d2; }
+    .panel { background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+    h1 { font-size: 1.2rem; margin: 0 0 10px; text-align: center; color: #1976d2; }
     
-    /* 右側：ハイライト＆ギャラリーエリア */
-    .right-panel { flex: 1.2; display: flex; flex-direction: column; gap: 15px; max-height: calc(100vh - 40px); }
-
-    /* 各種パネルのデザイン */
-    .panel-box { width: 100%; background: white; padding: 20px; border-radius: 8px; box-sizing: border-box; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-    .panel-box.center { text-align: center; }
+    #videoPlayer { width: 100%; border-radius: 4px; background: #000; max-height: 55vh; }
     
-    .panel-box label { display: block; font-weight: bold; margin-bottom: 10px; color: #555; }
-    .panel-box input[type="file"] { font-size: 1rem; cursor: pointer; }
-
-    .video-wrapper { width: 100%; background: black; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.2); display: flex; justify-content: center; align-items: center; min-height: 300px; }
-    video { width: 100%; max-height: 500px; display: none; }
-    #videoPlaceholder { color: #888; font-size: 1rem; padding: 40px; text-align: center; }
-
-    .interval-settings { display: flex; flex-direction: column; align-items: center; gap: 15px; border-bottom: 1px solid #eee; padding-bottom: 20px; margin-bottom: 20px; }
-    .radio-group { display: flex; justify-content: center; gap: 20px; font-weight: bold; align-items: center; flex-wrap: wrap; }
-    .radio-group label { display: flex; align-items: center; gap: 5px; cursor: pointer; color: #424242; }
+    /* スキップボタン用スタイル */
+    .video-controls { display: flex; justify-content: center; gap: 15px; margin-top: 10px; }
+    .btn-skip { padding: 10px 20px; font-size: 0.95rem; border: none; border-radius: 6px; cursor: pointer; background: #e0e0e0; color: #333; font-weight: bold; transition: background 0.2s; }
+    .btn-skip:hover { background: #d0d0d0; }
     
-    .custom-input-group { display: flex; align-items: center; gap: 5px; }
-    #customInterval { width: 80px; padding: 5px; font-size: 1rem; text-align: right; border: 1px solid #ccc; border-radius: 4px; }
-    #customInterval:disabled { background: #eee; cursor: not-allowed; }
-
-    .btn-record { width: 100%; padding: 15px; font-size: 1.2rem; font-weight: bold; border: none; border-radius: 8px; background: #1976d2; color: white; cursor: pointer; transition: 0.2s; display: flex; justify-content: center; align-items: center; gap: 8px; }
-    .btn-record:hover { background: #1565c0; }
-    .btn-record.active { background: #d32f2f; animation: pulse 1.5s infinite; }
-    @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(0.98); box-shadow: inset 0 0 10px rgba(0,0,0,0.5); } 100% { transform: scale(1); } }
-
-    /* ハイライト（ピックアップ）セクション */
-    .highlight-section { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); display: flex; flex-direction: column; align-items: center; gap: 15px; }
-    .section-header { width: 100%; display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #eee; padding-bottom: 10px; }
-    .section-header h2 { font-size: 1.2rem; margin: 0; color: #333; }
+    .control-group { display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 15px; flex-wrap: wrap; }
+    .control-group label { cursor: pointer; font-weight: bold; }
+    .input-custom { width: 60px; padding: 4px; text-align: center; border: 1px solid #ccc; border-radius: 4px; }
     
-    .highlight-img-wrapper { width: 100%; height: 350px; background: #fafafa; border: 1px dashed #ccc; border-radius: 8px; display: flex; justify-content: center; align-items: center; overflow: hidden; }
-    #highlightImg { max-width: 100%; max-height: 100%; object-fit: contain; display: none; }
-    #highlightPlaceholder { color: #aaa; font-size: 0.9rem; }
-
-    /* ギャラリー関連 */
-    .gallery-section { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); display: flex; flex-direction: column; flex: 1; overflow: hidden; }
-    .gallery-actions { display: flex; gap: 10px; }
+    #btnToggle { width: 100%; padding: 15px; font-size: 1.1rem; font-weight: bold; border: none; border-radius: 8px; background: #1976d2; color: white; cursor: pointer; }
+    #btnToggle.running { background: #d32f2f; }
     
-    .btn-action { padding: 8px 16px; font-size: 0.95rem; font-weight: bold; border: none; border-radius: 6px; cursor: pointer; color: white; transition: 0.2s; }
-    .btn-save-single { background: #0288d1; }
-    .btn-save-single:hover { background: #0277bd; }
-    .btn-save-single:disabled { background: #81d4fa; cursor: not-allowed; }
+    .highlight-area { display: flex; flex-direction: column; align-items: center; gap: 10px; margin-bottom: 10px; }
+    #highlightImg { max-width: 100%; max-height: 40vh; border: 2px solid #1976d2; border-radius: 4px; object-fit: contain; }
+    .btn-save-single { padding: 8px 20px; font-size: 0.9rem; font-weight: bold; border: none; border-radius: 4px; background: #ff9800; color: white; cursor: pointer; }
     
-    .btn-export { background: #2e7d32; }
-    .btn-export:hover { background: #1b5e20; }
-    .btn-export:disabled { background: #a5d6a7; cursor: not-allowed; }
-    
+    .gallery-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #eee; padding-bottom: 10px; margin-bottom: 10px; }
+    .btn-action { padding: 8px 15px; font-size: 0.9rem; font-weight: bold; border: none; border-radius: 4px; cursor: pointer; color: white; }
+    .btn-zip { background: #4caf50; }
     .btn-clear { background: #757575; }
-    .btn-clear:hover { background: #424242; }
-
-    /* スクロール可能なサムネイル一覧 */
-    .gallery-scroll-area { flex: 1; overflow-y: auto; padding-right: 10px; margin-top: 15px; }
-    .gallery-container { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; }
     
-    .thumbnail-item { width: 100%; aspect-ratio: 16/9; border-radius: 6px; overflow: hidden; border: 3px solid transparent; box-sizing: border-box; background: #fff; display: flex; align-items: center; justify-content: center; cursor: pointer; opacity: 0.7; transition: 0.2s; }
-    .thumbnail-item:hover { opacity: 1; border-color: #bbdefb; }
-    .thumbnail-item.active { border-color: #1976d2; opacity: 1; box-shadow: 0 2px 6px rgba(0,0,0,0.3); }
-    .thumbnail-item img { width: 100%; height: 100%; display: block; object-fit: cover; }
-
-    /* メッセージボックス */
-    #msgBox { display: none; width: 100%; background: #fff3e0; color: #e65100; padding: 12px; border-radius: 8px; font-size: 1rem; border: 1px solid #ffcc80; box-sizing: border-box; text-align: center; font-weight: bold; margin-bottom: 15px; }
-
+    .gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; overflow-y: auto; align-content: start; flex: 1; padding-right: 5px; }
+    .thumb { width: 100%; aspect-ratio: 16/9; object-fit: cover; border-radius: 4px; cursor: pointer; border: 2px solid transparent; transition: border-color 0.2s; }
+    .thumb:hover { border-color: #90caf9; }
+    .thumb.selected { border-color: #1976d2; box-shadow: 0 0 5px rgba(25,118,210,0.5); }
   </style>
 </head>
 <body>
-
-  <div class="main-layout">
+  <!-- 左ペイン：動画と操作 -->
+  <div class="left-pane">
+    <div class="panel">
+      <h1>📸 連続スクショ v1.2</h1>
+      <div style="text-align: center; margin-bottom: 10px;">
+        <label style="font-weight: bold; cursor: pointer; background: #e3f2fd; padding: 10px 20px; border-radius: 4px; display: inline-block;">
+          💻 パソコン内の動画を選択
+          <input type="file" id="videoInput" accept="video/*" style="display: none;">
+        </label>
+        <div id="fileName" style="margin-top: 5px; font-size: 0.85rem; color: #666;"></div>
+      </div>
+    </div>
     
-    <!-- 左側：操作パネル -->
-    <div class="left-panel">
-      <h1>📸 連続スクショ v1.1</h1>
-      <div id="msgBox"></div>
-
-      <!-- 動画読み込み -->
-      <div class="panel-box center">
-        <label for="videoInput">💻 パソコン内の動画を選択</label>
-        <input type="file" id="videoInput" accept="video/*">
-      </div>
-
-      <!-- 動画プレイヤー -->
-      <div class="video-wrapper">
-        <div id="videoPlaceholder">動画が選択されていません</div>
-        <video id="videoPlayer" controls></video>
-      </div>
-
-      <!-- コントロール -->
-      <div class="panel-box">
-        <div class="interval-settings">
-          <div class="radio-group">
-            <span>撮影間隔：</span>
-            <label><input type="radio" name="interval" value="short" checked> 短 (0.1秒)</label>
-            <label><input type="radio" name="interval" value="long"> 長 (0.5秒)</label>
-            <label><input type="radio" name="interval" value="custom"> 手入力</label>
-          </div>
-          <div class="custom-input-group">
-            <input type="number" id="customInterval" min="0.1" max="60.0" step="0.1" value="1.0" disabled>
-            <span style="color:#555; font-weight:bold;">秒</span>
-          </div>
-        </div>
-        <button id="btnToggleRecord" class="btn-record" onclick="toggleCapture()">
-          <span>●</span> 連続スクショ開始
-        </button>
-      </div>
-    </div>
-
-    <!-- 右側：ハイライトとギャラリー -->
-    <div class="right-panel">
+    <div class="panel" style="flex: 1; display: flex; flex-direction: column;">
+      <video id="videoPlayer" controls></video>
       
-      <!-- ハイライト（ピックアップ画像） -->
-      <div class="highlight-section">
-        <div class="section-header">
-          <h2>✨ ピックアップ画像</h2>
-          <button id="btnSaveSingle" class="btn-action btn-save-single" onclick="saveHighlightImage()" disabled>📥 この画像だけ保存</button>
-        </div>
-        <div class="highlight-img-wrapper">
-          <div id="highlightPlaceholder">取得した画像がここに表示されます</div>
-          <img id="highlightImg" alt="ハイライト画像">
-        </div>
+      <!-- スキップボタン -->
+      <div class="video-controls">
+        <button class="btn-skip" onclick="skipVideo(-10)">⏪ 10秒戻る</button>
+        <button class="btn-skip" onclick="skipVideo(30)">早送り 30秒 ⏩</button>
       </div>
-
-      <!-- ギャラリー（サムネイル一覧） -->
-      <div class="gallery-section">
-        <div class="section-header">
-          <h2>取得した画像 (<span id="imgCount">0</span>枚)</h2>
-          <div class="gallery-actions">
-            <button id="btnExport" class="btn-action btn-export" onclick="exportZIP()" disabled>📦 ZIP一括保存</button>
-            <button class="btn-action btn-clear" onclick="clearGallery()">🗑 クリア</button>
-          </div>
+      
+      <div style="margin-top: auto; padding-top: 15px;">
+        <div class="control-group">
+          <span>撮影間隔：</span>
+          <label><input type="radio" name="interval" value="0.1"> 短 (0.1秒)</label>
+          <label><input type="radio" name="interval" value="0.5" checked> 長 (0.5秒)</label>
+          <label><input type="radio" name="interval" value="custom"> 手入力:</label>
+          <input type="number" id="customInterval" class="input-custom" value="2.0" step="0.1" min="0.1" max="60.0"> 秒
         </div>
-        <div class="gallery-scroll-area">
-          <div id="galleryContainer" class="gallery-container">
-            <!-- サムネイルが追加される -->
-          </div>
-        </div>
+        <button id="btnToggle" onclick="toggleCapture()">▶ 連続スクショ開始</button>
       </div>
-
     </div>
+  </div>
 
+  <!-- 右ペイン：ギャラリー -->
+  <div class="right-pane">
+    <div class="highlight-area" id="highlightArea" style="display: none;">
+      <img id="highlightImg" src="" alt="ピックアップ画像">
+      <button class="btn-save-single" onclick="saveSingleImage()">📥 この画像だけ保存</button>
+    </div>
+    
+    <div class="gallery-header">
+      <strong id="countDisplay">取得した画像 (0枚)</strong>
+      <div>
+        <button class="btn-action btn-zip" onclick="exportZIP()">📦 ZIP一括保存</button>
+        <button class="btn-action btn-clear" onclick="clearImages()">🗑 クリア</button>
+      </div>
+    </div>
+    
+    <div class="gallery" id="gallery"></div>
   </div>
 
   <script>
     const videoInput = document.getElementById('videoInput');
     const videoPlayer = document.getElementById('videoPlayer');
-    const videoPlaceholder = document.getElementById('videoPlaceholder');
-    const btnToggleRecord = document.getElementById('btnToggleRecord');
-    
-    // 間隔設定
-    const intervalRadios = document.querySelectorAll('input[name="interval"]');
+    const fileNameDiv = document.getElementById('fileName');
+    const btnToggle = document.getElementById('btnToggle');
     const customIntervalInput = document.getElementById('customInterval');
-
-    // ハイライト・ギャラリー
+    const radios = document.getElementsByName('interval');
+    const gallery = document.getElementById('gallery');
+    const highlightArea = document.getElementById('highlightArea');
     const highlightImg = document.getElementById('highlightImg');
-    const highlightPlaceholder = document.getElementById('highlightPlaceholder');
-    const btnSaveSingle = document.getElementById('btnSaveSingle');
-    const galleryContainer = document.getElementById('galleryContainer');
-    const imgCountSpan = document.getElementById('imgCount');
-    const btnExport = document.getElementById('btnExport');
-    const msgBox = document.getElementById('msgBox');
-
-    let captureInterval = null;
-    let isCapturing = false;
+    const countDisplay = document.getElementById('countDisplay');
     
-    // 取得した画像データと状態管理
-    let capturedImages = [];
-    let currentHighlightIndex = -1;
+    let isCapturing = false;
+    let captureTimer = null;
+    let imagesData = [];
+    let selectedIndex = -1;
 
-    // --- イベントリスナー ---
-
-    // メッセージ表示
-    function showMessage(text, isError = true) {
-      msgBox.textContent = text;
-      msgBox.style.display = 'block';
-      msgBox.style.color = isError ? '#e65100' : '#1b5e20';
-      msgBox.style.backgroundColor = isError ? '#fff3e0' : '#e8f5e9';
-      msgBox.style.borderColor = isError ? '#ffcc80' : '#a5d6a7';
-      setTimeout(() => { msgBox.style.display = 'none'; }, 3000);
-    }
-
-    // 手入力の活性/非活性切り替え
-    intervalRadios.forEach(radio => {
-      radio.addEventListener('change', (e) => {
-        if (e.target.value === 'custom') {
-          customIntervalInput.disabled = false;
-          customIntervalInput.focus();
-        } else {
-          customIntervalInput.disabled = true;
-        }
-      });
-    });
-
-    // 動画ファイル選択
+    // 動画読み込み
     videoInput.addEventListener('change', (e) => {
       const file = e.target.files[0];
       if (file) {
-        if (videoPlayer.src) URL.revokeObjectURL(videoPlayer.src);
-        const url = URL.createObjectURL(file);
-        videoPlayer.src = url;
-        videoPlayer.style.display = 'block';
-        videoPlaceholder.style.display = 'none';
-        stopCapture();
-        clearGallery();
+        fileNameDiv.textContent = file.name;
+        videoPlayer.src = URL.createObjectURL(file);
       }
     });
 
-    videoPlayer.addEventListener('ended', () => {
-      if (isCapturing) stopCapture();
-    });
+    // 動画スキップ機能
+    function skipVideo(seconds) {
+      if (videoPlayer.src && videoPlayer.readyState > 0) {
+        videoPlayer.currentTime = Math.max(0, videoPlayer.currentTime + seconds);
+      }
+    }
 
-    // --- キャプチャロジック ---
-
+    // 間隔の取得
     function getIntervalMs() {
-      const intervalType = document.querySelector('input[name="interval"]:checked').value;
-      if (intervalType === 'short') return 100;
-      if (intervalType === 'long') return 500;
-      if (intervalType === 'custom') {
-        let val = parseFloat(customIntervalInput.value);
-        if (isNaN(val) || val < 0.1) val = 0.1;
-        if (val > 60.0) val = 60.0;
-        customIntervalInput.value = val; // フォーマット補正
-        return val * 1000;
+      let val = 0.5;
+      for (const radio of radios) {
+        if (radio.checked) {
+          val = radio.value === 'custom' ? parseFloat(customIntervalInput.value) : parseFloat(radio.value);
+          break;
+        }
       }
-      return 100;
+      if (isNaN(val) || val < 0.1) val = 0.1;
+      if (val > 60.0) val = 60.0;
+      return val * 1000;
     }
 
-    function toggleCapture() {
-      if (!videoPlayer.src) {
-        showMessage('先に動画ファイルを選択してください！');
-        return;
-      }
-      if (isCapturing) {
-        stopCapture();
-      } else {
-        startCapture();
-      }
-    }
-
-    function startCapture() {
-      const intervalMs = getIntervalMs();
-      isCapturing = true;
-      btnToggleRecord.classList.add('active');
-      btnToggleRecord.innerHTML = '<span>■</span> 停止';
-      btnExport.disabled = true;
-
-      if (videoPlayer.paused) {
-        videoPlayer.play();
-      }
-
-      captureInterval = setInterval(() => {
-        takeScreenshot();
-      }, intervalMs);
-    }
-
-    function stopCapture() {
-      isCapturing = false;
-      btnToggleRecord.classList.remove('active');
-      btnToggleRecord.innerHTML = '<span>●</span> 連続スクショ開始';
+    // スクショ実行
+    function captureFrame() {
+      if (!videoPlayer.src || videoPlayer.readyState < 2) return;
       
-      if (captureInterval) {
-        clearInterval(captureInterval);
-        captureInterval = null;
-      }
-      if (!videoPlayer.paused) {
-        videoPlayer.pause();
-      }
-      if (capturedImages.length > 0) {
-        btnExport.disabled = false;
-      }
-    }
-
-    function takeScreenshot() {
-      if (!videoPlayer.videoWidth || !videoPlayer.videoHeight) return;
-
       const canvas = document.createElement('canvas');
       canvas.width = videoPlayer.videoWidth;
       canvas.height = videoPlayer.videoHeight;
       const ctx = canvas.getContext('2d');
       ctx.drawImage(videoPlayer, 0, 0, canvas.width, canvas.height);
-
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
-      capturedImages.push(dataUrl);
-      const newIndex = capturedImages.length - 1;
-
-      // サムネイル生成
-      const thumb = document.createElement('div');
-      thumb.className = 'thumbnail-item';
-      thumb.dataset.index = newIndex;
-      thumb.onclick = () => setHighlight(newIndex);
       
-      const img = document.createElement('img');
-      img.src = dataUrl;
-      thumb.appendChild(img);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+      imagesData.push(dataUrl);
       
-      galleryContainer.appendChild(thumb);
+      const imgIndex = imagesData.length - 1;
+      const imgEl = document.createElement('img');
+      imgEl.src = dataUrl;
+      imgEl.className = 'thumb';
+      imgEl.onclick = () => selectImage(imgIndex);
+      gallery.appendChild(imgEl);
       
-      // 自動で一番下までスクロール
-      const scrollArea = document.querySelector('.gallery-scroll-area');
-      scrollArea.scrollTop = scrollArea.scrollHeight;
-
-      updateCounter();
-      // 取得したばかりの最新画像をハイライト表示
-      setHighlight(newIndex);
+      selectImage(imgIndex);
+      countDisplay.textContent = `取得した画像 (${imagesData.length}枚)`;
     }
 
-    // --- ハイライト・ギャラリー操作 ---
-
-    function setHighlight(index) {
-      if (index < 0 || index >= capturedImages.length) return;
-      currentHighlightIndex = index;
-      
-      // 画像をハイライト枠にセット
-      highlightImg.src = capturedImages[index];
-      highlightImg.style.display = 'block';
-      highlightPlaceholder.style.display = 'none';
-      btnSaveSingle.disabled = false;
-
-      // サムネイルのアクティブ状態を更新
-      const thumbs = galleryContainer.querySelectorAll('.thumbnail-item');
-      thumbs.forEach(t => t.classList.remove('active'));
-      const activeThumb = galleryContainer.querySelector(`.thumbnail-item[data-index="${index}"]`);
-      if (activeThumb) activeThumb.classList.add('active');
-    }
-
-    function saveHighlightImage() {
-      if (currentHighlightIndex === -1) return;
-      
-      const dataUrl = capturedImages[currentHighlightIndex];
-      const numStr = String(currentHighlightIndex + 1).padStart(3, '0');
-      const fileName = `screenshot_${numStr}.jpg`;
-      
-      const a = document.createElement('a');
-      a.href = dataUrl;
-      a.download = fileName;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-    }
-
-    function clearGallery() {
+    // 撮影トグル
+    function toggleCapture() {
+      if (!videoPlayer.src) {
+        alert('先に動画を読み込んでください。');
+        return;
+      }
       if (isCapturing) {
-        showMessage('スクショ実行中はクリアできません。');
-        return;
+        clearInterval(captureTimer);
+        videoPlayer.pause();
+        btnToggle.textContent = '▶ 連続スクショ開始';
+        btnToggle.classList.remove('running');
+        isCapturing = false;
+      } else {
+        const ms = getIntervalMs();
+        videoPlayer.play();
+        captureTimer = setInterval(captureFrame, ms);
+        btnToggle.textContent = '⏹ 停止 (スクショ中...)';
+        btnToggle.classList.add('running');
+        isCapturing = true;
       }
-      if (capturedImages.length > 0 && !confirm('取得した画像をすべて消去しますか？')) {
-        return;
-      }
-      galleryContainer.innerHTML = '';
-      capturedImages = [];
-      currentHighlightIndex = -1;
-      
-      highlightImg.src = '';
-      highlightImg.style.display = 'none';
-      highlightPlaceholder.style.display = 'block';
-      
-      btnSaveSingle.disabled = true;
-      btnExport.disabled = true;
-      updateCounter();
     }
 
-    function updateCounter() {
-      imgCountSpan.textContent = capturedImages.length;
+    // 画像選択とハイライト
+    function selectImage(index) {
+      if (index < 0 || index >= imagesData.length) return;
+      selectedIndex = index;
+      highlightImg.src = imagesData[index];
+      highlightArea.style.display = 'flex';
+      
+      const thumbs = gallery.getElementsByClassName('thumb');
+      for (let i = 0; i < thumbs.length; i++) {
+        if (i === index) {
+          thumbs[i].classList.add('selected');
+          // 選択された画像が画面外ならスクロールして表示
+          thumbs[i].scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        } else {
+          thumbs[i].classList.remove('selected');
+        }
+      }
     }
 
-    // --- ZIPエクスポート ---
+    // キーボードでの画像選択（左右矢印キー）
+    document.addEventListener('keydown', (e) => {
+      // 取得した画像がない場合や、数値入力欄にフォーカスがある場合は無効化
+      if (imagesData.length === 0) return;
+      if (document.activeElement.tagName === 'INPUT') return;
 
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        selectImage(selectedIndex > 0 ? selectedIndex - 1 : imagesData.length - 1);
+      } else if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        selectImage(selectedIndex < imagesData.length - 1 ? selectedIndex + 1 : 0);
+      }
+    });
+
+    // 単一保存
+    function saveSingleImage() {
+      if (selectedIndex === -1) return;
+      const a = document.createElement('a');
+      a.href = imagesData[selectedIndex];
+      const pad = String(selectedIndex + 1).padStart(3, '0');
+      a.download = `screenshot_${pad}.jpg`;
+      a.click();
+    }
+
+    // ZIP保存
     async function exportZIP() {
-      if (capturedImages.length === 0) return;
+      if (imagesData.length === 0) {
+        alert('画像がありません。');
+        return;
+      }
+      const zip = new JSZip();
+      imagesData.forEach((dataUrl, index) => {
+        const base64 = dataUrl.split(',')[1];
+        const pad = String(index + 1).padStart(3, '0');
+        zip.file(`screenshot_${pad}.jpg`, base64, {base64: true});
+      });
       
-      btnExport.disabled = true;
-      const originalText = btnExport.innerHTML;
-      btnExport.innerHTML = '⏳ 圧縮中...';
+      const content = await zip.generateAsync({type: 'blob'});
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(content);
+      
+      const now = new Date();
+      const ts = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}_${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}`;
+      
+      a.download = `screenshots_${ts}.zip`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    }
 
-      try {
-        const zip = new JSZip();
-        capturedImages.forEach((dataUrl, index) => {
-          const base64Data = dataUrl.split(',')[1];
-          const numStr = String(index + 1).padStart(3, '0');
-          const fileName = `screenshot_${numStr}.jpg`;
-          zip.file(fileName, base64Data, {base64: true});
-        });
-
-        const zipBlob = await zip.generateAsync({type: "blob"});
-        const downloadUrl = URL.createObjectURL(zipBlob);
-        const a = document.createElement('a');
-        a.href = downloadUrl;
-        
-        const dateStr = new Date().toISOString().replace(/[:\-\.T]/g, '').slice(0, 14);
-        a.download = `screenshots_${dateStr}.zip`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(downloadUrl);
-        
-        showMessage('✅ ZIPファイルのダウンロードが完了しました！', false);
-      } catch (error) {
-        console.error(error);
-        showMessage('ZIPファイルの生成に失敗しました。');
-      } finally {
-        btnExport.disabled = false;
-        btnExport.innerHTML = originalText;
+    // クリア
+    function clearImages() {
+      if (confirm('取得した画像をすべて削除しますか？')) {
+        imagesData = [];
+        selectedIndex = -1;
+        gallery.innerHTML = '';
+        highlightArea.style.display = 'none';
+        countDisplay.textContent = '取得した画像 (0枚)';
       }
     }
   </script>
